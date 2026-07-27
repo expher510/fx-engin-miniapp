@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>مهندس الفوركس</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0A0F1C;
+    --surface: #121A2B;
+    --surface-2: #182337;
+    --line: #232F45;
+    --gold: #C9A24B;
+    --gold-dim: #8a7239;
+    --up: #3FBF8F;
+    --down: #E5645A;
+    --text: #EDEFF3;
+    --muted: #7C8797;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'IBM Plex Sans Arabic', sans-serif;
+    overflow-x:hidden;
+  }
+  .mono{ font-family:'IBM Plex Mono', monospace; direction:ltr; display:inline-block; }
+  .display{ font-family:'Cairo', sans-serif; font-weight:800; }
+
+  /* ---- signature: ambient candle ticker ---- */
+  .ticker{
+    position:relative; height:46px; overflow:hidden;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, #0d1424, var(--bg));
+  }
+  .ticker-track{
+    position:absolute; inset:0; display:flex; align-items:flex-end;
+    gap:6px; padding:8px 10px; animation: drift 38s linear infinite;
+    width:200%;
+  }
+  .candle{ width:5px; border-radius:1px; opacity:.55; }
+  .candle.up{ background:var(--up); }
+  .candle.down{ background:var(--down); }
+  @keyframes drift{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce){ .ticker-track{ animation:none; } }
+
+  .wrap{ padding:20px 18px 32px; }
+  .eyebrow{
+    color:var(--gold); font-size:12px; letter-spacing:.5px;
+    display:flex; align-items:center; gap:8px; margin-bottom:6px;
+  }
+  .eyebrow::before{ content:""; width:14px; height:1px; background:var(--gold-dim); }
+  h1.title{ font-size:22px; margin:0 0 22px; line-height:1.4; }
+  h1.title b{ color:var(--gold); }
+
+  .row{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+    padding:16px; margin-bottom:10px; cursor:pointer;
+    border-right:3px solid var(--gold-dim);
+    transition: border-color .15s, background .15s;
+  }
+  .row:active{ background:var(--surface-2); border-right-color:var(--gold); }
+  .row .num{ color:var(--gold); font-size:13px; margin-left:10px; }
+  .row .body{ flex:1; }
+  .row h3{ margin:0 0 4px; font-size:15px; font-weight:600; }
+  .row p{ margin:0; color:var(--muted); font-size:12.5px; line-height:1.6; }
+  .row .price{ color:var(--gold); font-size:14px; white-space:nowrap; }
+  .row .arrow{ color:var(--muted); font-size:16px; }
+
+  .plain{
+    background:transparent; border:none; padding:14px 2px; cursor:default;
+    border-right:none;
+  }
+  .plain:active{ background:transparent; }
+
+  .back{
+    display:inline-flex; align-items:center; gap:6px;
+    color:var(--muted); font-size:13px; margin-bottom:18px; cursor:pointer;
+  }
+  .back:active{ color:var(--gold); }
+
+  .detail-price{
+    display:flex; align-items:baseline; gap:8px; margin:18px 0 4px;
+    padding-top:14px; border-top:1px solid var(--line);
+  }
+  .detail-price .num{ font-size:26px; color:var(--gold); }
+  .detail-price .cur{ color:var(--muted); font-size:13px; }
+  .desc{ color:var(--muted); font-size:14px; line-height:1.9; }
+
+  .btn{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    width:100%; padding:15px; border:none; border-radius:10px;
+    background:var(--gold); color:#141018; font-size:15px; font-weight:600;
+    margin-top:20px; cursor:pointer; font-family:inherit;
+  }
+  .btn:active{ background:var(--gold-dim); }
+  .btn[disabled]{ opacity:.6; }
+
+  .screen{
+    display:none; animation: enter .22s ease;
+  }
+  .screen.active{ display:block; }
+  @keyframes enter{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:translateY(0);} }
+
+  .foot-note{ text-align:center; color:var(--muted); font-size:11.5px; margin-top:18px; }
+</style>
+</head>
+<body>
+
+<div class="ticker">
+  <div class="ticker-track" id="tickerTrack"></div>
+</div>
+
+<div class="wrap">
+
+  <!-- HOME -->
+  <div id="home" class="screen active">
+    <div class="eyebrow">مهندس الفوركس</div>
+    <h1 class="title">التداول مش حظ،<br><b>هو مهارة بتتعلمها.</b></h1>
+
+    <div class="row" onclick="nav('services')">
+      <div class="arrow">‹</div>
+      <div class="body">
+        <h3>الخدمات</h3>
+        <p>تحليلات، توصيات، استشارات مالية</p>
+      </div>
+    </div>
+    <div class="row" onclick="nav('training')">
+      <div class="arrow">‹</div>
+      <div class="body">
+        <h3>التدريب</h3>
+        <p>3 كورسات حسب مستواك</p>
+      </div>
+    </div>
+    <div class="row" onclick="nav('vip')">
+      <div class="arrow">‹</div>
+      <div class="body">
+        <h3>قناة VIP</h3>
+        <p>توصيات لحظية + تركيز على الذهب XAUUSD</p>
+      </div>
+      <div class="price mono">100$</div>
+    </div>
+    <p class="foot-note">كل الخدمات تُقدَّم أونلاين</p>
+  </div>
+
+  <!-- SERVICES -->
+  <div id="services" class="screen">
+    <span class="back" onclick="nav('home')">‹ الرئيسية</span>
+    <div class="eyebrow">نطاق العمل</div>
+    <h1 class="title">خدماتنا</h1>
+
+    <div class="row plain"><span class="num mono">01</span><div class="body"><h3>تدريب وتعليم</h3></div></div>
+    <div class="row plain"><span class="num mono">02</span><div class="body"><h3>تحليلات فنية ومالية لكل الأسواق العالمية</h3></div></div>
+    <div class="row plain"><span class="num mono">03</span><div class="body"><h3>إشارات وتوصيات تداول</h3></div></div>
+    <div class="row plain"><span class="num mono">04</span><div class="body"><h3>استشارات وحلول اقتصادية ومالية</h3></div></div>
+  </div>
+
+  <!-- TRAINING MENU -->
+  <div id="training" class="screen">
+    <span class="back" onclick="nav('home')">‹ الرئيسية</span>
+    <div class="eyebrow">المسار التدريبي</div>
+    <h1 class="title">اختر الكورس المناسب لمستواك</h1>
+
+    <div class="row" onclick="showCourse('foundation')">
+      <div class="price mono">60$</div>
+      <div class="body">
+        <h3>كورس التأسيس</h3>
+        <p>البداية الصح لأي متداول جديد</p>
+      </div>
+    </div>
+    <div class="row" onclick="showCourse('trading')">
+      <div class="price mono">50$</div>
+      <div class="body">
+        <h3>التعليم والتدريب</h3>
+        <p>تداول وتحليل فني — مبتدئ ومحترف</p>
+      </div>
+    </div>
+    <div class="row" onclick="showCourse('business')">
+      <div class="price mono">200$</div>
+      <div class="body">
+        <h3>كبار رجال الأعمال</h3>
+        <p>مسار مكثف لبناء مهارات استثمارية</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- COURSE DETAIL -->
+  <div id="course" class="screen">
+    <span class="back" onclick="nav('training')">‹ أنواع التدريب</span>
+    <div class="eyebrow" id="course-eyebrow">كورس</div>
+    <h1 class="title" id="course-title"></h1>
+    <p class="desc" id="course-desc"></p>
+    <div class="detail-price">
+      <span class="num mono" id="course-price"></span>
+      <span class="cur">دولار أمريكي</span>
+    </div>
+    <button class="btn" id="course-pay-btn">اشترك الآن</button>
+  </div>
+
+  <!-- VIP -->
+  <div id="vip" class="screen">
+    <span class="back" onclick="nav('home')">‹ الرئيسية</span>
+    <div class="eyebrow">قناة التوصيات</div>
+    <h1 class="title">VIP — توصيات لحظية</h1>
+    <p class="desc">
+      توصيات وإشارات لحظية على جميع العملات والمؤشرات، مع تركيز خاص على الذهب العالمي
+      <span class="mono">XAUUSD</span> نظراً لحجم السيولة وفرص الدخول المميزة.
+    </p>
+    <div class="detail-price">
+      <span class="num mono">100</span>
+      <span class="cur">دولار أمريكي / اشتراك</span>
+    </div>
+    <button class="btn" onclick="pay('vip')">اشترك الآن</button>
+  </div>
+
+</div>
+
+<script>
+// fallback بسيط لو الصفحة اتفتحت برا تيلجرام (للمعاينة بس)
+const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : {
+  ready(){}, expand(){}, close(){},
+  BackButton: { show(){}, hide(){}, onClick(){} },
+  MainButton: { show(){}, hide(){}, setText(){} },
+  showAlert(msg){ alert(msg); },
+  openLink(url){ window.open(url, '_blank'); },
+  initData: '',
+  initDataUnsafe: {}
+};
+if (!window.Telegram) {
+  console.warn('الصفحة مش متفتحة جوه تيلجرام — الدفع مش هيشتغل فعلياً هنا، ده وضع معاينة بس.');
+}
+tg.ready();
+tg.expand();
+
+// خلفية زرار الدفع تتلون بنفس الذهبي بدل لون تيلجرام الافتراضي
+document.documentElement.style.setProperty('--tg-theme-bg-color', '#0A0F1C');
+
+// ⚠️ رابط الـ Webhook بتاع n8n اللي بيعمل الـ Plisio invoice
+const N8N_WEBHOOK_URL = "https://yaman-13.cfd/webhook/create-invoice";
+
+const COURSES = {
+  foundation: {
+    id: "course_foundation",
+    eyebrow: "المرحلة الأولى",
+    title: "كورس التأسيس",
+    desc: "تأهيل المتدرب للحد الأدنى من المعرفة اللازمة للبدء في التداول: تكنولوجيا المال، البنوك، الاقتصاد.",
+    price: "60"
+  },
+  trading: {
+    id: "course_trading",
+    eyebrow: "تداول وتحليل فني",
+    title: "التعليم والتدريب",
+    desc: "مرحلتين (مبتدئين ومحترفين)، يشمل استخدام البرامج وقراءة الرسم البياني بطريقة هندسية.",
+    price: "50"
+  },
+  business: {
+    id: "course_business",
+    eyebrow: "مسار مكثف",
+    title: "كبار رجال الأعمال",
+    desc: "لتطوير مهارات الشباب ليصبحوا رجال أعمال متميزين.",
+    price: "200"
+  }
+};
+
+function nav(screenId){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+  screenId === 'home' ? tg.BackButton.hide() : tg.BackButton.show();
+}
+
+function showCourse(key){
+  const c = COURSES[key];
+  document.getElementById('course-eyebrow').innerText = c.eyebrow;
+  document.getElementById('course-title').innerText = c.title;
+  document.getElementById('course-desc').innerText = c.desc;
+  document.getElementById('course-price').innerText = c.price;
+  document.getElementById('course-pay-btn').onclick = () => pay(c.id);
+  nav('course');
+}
+
+async function pay(productId){
+  const btn = event?.target?.closest('.btn');
+  if (btn) { btn.disabled = true; btn.innerText = 'جاري تجهيز الفاتورة...'; }
+  try {
+    const res = await fetch(N8N_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        product_id: productId,
+        init_data: tg.initData,
+        chat_id: tg.initDataUnsafe?.user?.id
+      })
+    });
+    const data = await res.json();
+    if (data.invoice_url) {
+      tg.openLink(data.invoice_url);
+    } else {
+      tg.showAlert('حصل خطأ في إنشاء الفاتورة، حاول تاني.');
+    }
+  } catch (e) {
+    tg.showAlert('في مشكلة اتصال، حاول تاني.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerText = 'اشترك الآن'; }
+  }
+}
+
+tg.BackButton.onClick(() => nav('home'));
+
+// build decorative candle ticker (بصري بس، مش بيانات حقيقية)
+(function buildTicker(){
+  const track = document.getElementById('tickerTrack');
+  let html = '';
+  for (let i=0; i<70; i++){
+    const up = Math.random() > 0.45;
+    const h = 6 + Math.round(Math.random()*28);
+    html += `<div class="candle ${up?'up':'down'}" style="height:${h}px"></div>`;
+  }
+  track.innerHTML = html + html; // مكرر عشان الـ loop يبقى سلس
+})();
+</script>
+</body>
+</html>
